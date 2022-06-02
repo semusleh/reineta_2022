@@ -16,11 +16,30 @@ setwd("C:/Github-DER/project reineta_2022/data reineta_2022")
 reineta_2022<-read_excel("Bitacoras enmalle - Artesanal hist.xlsx")
 reineta_2022$year<-format(as.Date(reineta_2022$FECHA_LANCE, format="%d/%m/%Y"),"%Y")
 
+reineta_2022$cpue<-reineta_2022$PESO/reineta_2022$HORA_DE_REPOSO
 
+#complementación de datos de profundidad
+
+table(is.na(reineta_2022$PROFUNDIDAD_LM_ENM))
+table(is.na(reineta_2022$PROFUNDIDAD))
+
+reineta_2022$prof<-NA
+for(i in 1:dim(filtrado_3)[1]){
+  if (is.na(filtrado_3$PROFUNDIDAD_LM_ENM)[i]){
+    reineta_2022$prof[i]<-filtrado_3$PROFUNDIDAD[i]}
+  else {reineta_2022$prof[i]<-filtrado_3$PROFUNDIDAD_LM_ENM[i]}
+}
+
+table(is.na(reineta_2022$prof))
+
+
+range(reineta_2022$year) #enmalle empieza el 2004
+#Espinel restringido espacialmente a Regiones de Valparaíso y Los Ríos (Resolución N 1333-2013)
 
 #COD_ESPECIE 27
 #PESO Columna más completa que la de abajo 
 #PESO_TOTAL_CAPTURA no tan completa
+#Profundidad de 0 a 300m
 
 #CPUE
 
@@ -150,3 +169,63 @@ ggarrange(q1, q2, q3, q4,q5,
 
 ggarrange(q1, q5,
           ncol=1, nrow=2)
+
+names(reineta_2022)
+
+hist(reineta_2022$NUMERO_PANIOS, breaks = 100)
+boxplot(NUMERO_PANIOS ~ COD_BARCO, data = reineta_2022, las=2)
+
+hist(reineta_2022$HORA_DE_REPOSO, breaks = 100)
+hist(reineta_2022$HORA_DE_REPOSO/60, breaks = 100)
+hist(reineta_2022$HORA_DE_REPOSO/100, breaks = 100)
+
+hist(reineta_2022$HORA_DE_REPOSO[reineta_2022$HORA_DE_REPOSO<600])
+
+boxplot(HORA_DE_REPOSO ~ COD_BARCO, data = reineta_2022, las=2)
+summary(reineta_2022$HORA_DE_REPOSO[reineta_2022$HORA_DE_REPOSO>0])
+
+ggplot(data = reineta_2022, aes(y=HORA_DE_REPOSO, group=COD_BARCO)) +
+  geom_boxplot()+
+  labs(title = "HORA_DE_REPOSO",
+       y = "HORA_DE_REPOSO", x = "COD_BARCO") + 
+  facet_wrap(~ year)
+
+ggplot(data = reineta_2022, aes(y=NUMERO_PANIOS, group=COD_BARCO)) +
+  geom_boxplot()+
+  labs(title = "NUMERO_PANIOS",
+       y = "NUMERO_PANIOS", x = "COD_BARCO") + 
+  facet_wrap(~ year)
+
+
+#capturas PESO
+hist(reineta_2022$PESO, breaks = 40)
+filtrado_1<-subset(reineta_2022, reineta_2022$PESO <= 10000)
+
+#esfuerzo HORA_DE_REPOSO
+hist(reineta_2022$HORA_DE_REPOSO/60, breaks = 200, xlim = c(0, 50))
+filtrado_2<-subset(filtrado_1, filtrado_1$HORA_DE_REPOSO <= 1800) #30h / podría ser 24h
+
+#esfuerzo NUMERO_PANIOS
+hist(reineta_2022$NUMERO_PANIOS, breaks = 200, xlim = c(0, 50))
+filtrado_3<-subset(filtrado_2, filtrado_2$NUMERO_PANIOS <= 50) 
+
+#esfuerzo PROFUNDIDAD
+hist(reineta_2022$prof, xlim = c(0, 1000), breaks = 10000)
+filtrado_4<-subset(filtrado_3, filtrado_3$prof <= 300) 
+
+#esfuerzo CPUE
+hist(cpue_reineta_2022, breaks=100)
+filtrado_5<-subset(filtrado_4, filtrado_4$cpue <= 20) 
+
+print(paste("Base de datos inicial=",dim(reineta_2022)[1]))
+print(paste("Filtro PESO <= 10000",dim(filtrado_1)[1]))
+print(paste("Filtro HORA_DE_REPOSO <= 1800=",dim(filtrado_2)[1]))
+print(paste("Filtro NUMERO_PANIOS <= 50)=",dim(filtrado_3)[1]))
+print(paste("Filtro prof <= 300 m=",dim(filtrado_4)[1]))
+print(paste("Filtro cpue <= 20 m=",dim(filtrado_5)[1]))
+
+hist(filtrado_5$cpue, breaks = 50)
+
+
+
+
