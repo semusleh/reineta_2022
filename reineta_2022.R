@@ -224,8 +224,33 @@ print(paste("Filtro NUMERO_PANIOS <= 50)=",dim(filtrado_3)[1]))
 print(paste("Filtro prof <= 300 m=",dim(filtrado_4)[1]))
 print(paste("Filtro cpue <= 20 m=",dim(filtrado_5)[1]))
 
-hist(filtrado_5$cpue, breaks = 50)
+hist(filtrado_5$cpue, breaks = 30)
+hist(log(filtrado_5$cpue), breaks = 30)
 
+hist(filtrado_5$PESO, breaks = 30)
+hist(log(filtrado_5$PESO), breaks = 30)
 
+hist(filtrado_5$HORA_DE_REPOSO, breaks = 30)
+hist(log(filtrado_5$HORA_DE_REPOSO), breaks = 30)
 
+acumm_filtrado_5 <- filtrado_5 %>%
+  group_by(year) %>% 
+  summarise_at(c("PESO", "TAMANIO_MALLA", "NUMERO_PANIOS", "HORA_DE_REPOSO", "cpue"),
+               funs(sum), na.rm = TRUE)
+
+plot(x=acumm_filtrado_5$year, y=acumm_filtrado_5$PESO)
+
+ggplot(data=acumm_filtrado_5, aes(y=PESO/10000, x=year, group=1))+
+  geom_line()+
+  geom_point()+
+  ggtitle("Captura acumulada anual")+
+  ylab("Toneladas")
+
+ggplot(data=acumm_filtrado_5, aes(y=cpue, x=year, group=1))+
+  geom_line()+
+  geom_point()+
+  ggtitle("cpue nominal acumulada anual")+
+  ylab("Toneladas")
+
+#Estandarización cpue
 
