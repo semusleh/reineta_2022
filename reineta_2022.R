@@ -10,13 +10,23 @@ library(mgcv)#GAM
 library(readxl)
 library(ggplot2)
 library(ggpubr) #multiplot ggplot con una sola leyenda
+library(zoo) #cambiar a trimestre
 
 setwd("C:/Github-DER/project reineta_2022/data reineta_2022")
 
 reineta_2022<-read_excel("Bitacoras enmalle - Artesanal hist.xlsx")
 reineta_2022$year<-format(as.Date(reineta_2022$FECHA_LANCE, format="%d/%m/%Y"),"%Y")
+reineta_2022$month<-format(as.Date(reineta_2022$FECHA_LANCE, format="%d/%m/%Y"),"%m")
+
+reineta_2022$f_year<-as.factor(reineta_2022$year)
+reineta_2022$f_month<-as.factor(reineta_2022$month)
 
 reineta_2022$cpue<-reineta_2022$PESO/reineta_2022$HORA_DE_REPOSO
+reineta_2022$cpue_h<-reineta_2022$PESO/(reineta_2022$HORA_DE_REPOSO/60)
+
+reineta_2022$trimestre <- zoo::as.yearqtr(reineta_2022$FECHA_LANCE,           # Convert dates to quarterly
+                                 format = "%Y-%m-%d")
+reineta_2022$COD_BARCO<-as.factor(reineta_2022$COD_BARCO)
 
 #complementación de datos de profundidad
 
@@ -115,29 +125,25 @@ h4<-ggplot(reineta_2022, aes(x=HORA_DE_REPOSO))+
 
 ggarrange(h1, h2, h3, h4,h0,
           ncol=2, nrow=3)
-
-data_reineta_pca_h<-(reineta_2022[,c("LONGITUD_RED", "TAMANIO_MALLA", "NUMERO_PANIOS", "HORA_DE_REPOSO")])
-
-data_reineta_pca_h[is.na(data_reineta_pca_h)] <- 0
-
-
-esfuerzo_pca<-prcomp(data_reineta_pca_h ,scale = T)
-esfuerzo_pca$x
-
-reineta_2022<-cbind(reineta_2022, esfuerzo_pca$x)
-
-
-reineta_2022$cpue<-(reineta_2022$PESO/reineta_2022$PC1 )
+# 
+# data_reineta_pca_h<-(reineta_2022[,c("LONGITUD_RED", "TAMANIO_MALLA", "NUMERO_PANIOS", "HORA_DE_REPOSO")])
+# 
+# data_reineta_pca_h[is.na(data_reineta_pca_h)] <- 0
+# 
+# 
+# esfuerzo_pca<-prcomp(data_reineta_pca_h ,scale = T)
+# esfuerzo_pca$x
+# 
+# reineta_2022<-cbind(reineta_2022, esfuerzo_pca$x)
+# 
+# 
+# reineta_2022$cpue<-(reineta_2022$PESO/reineta_2022$PC1 )
 
 
 acumm_reineta_2022 <- reineta_2022 %>%
   group_by(year) %>% 
   summarise_at(c("PESO", "LONGITUD_RED", "TAMANIO_MALLA", "NUMERO_PANIOS", "HORA_DE_REPOSO"),
                funs(sum), na.rm = TRUE)
-
-summ_reineta_2022
-
-ggplot(acumm_reineta_2022)
 
 q1<-ggplot(data=acumm_reineta_2022, aes(y=PESO, x=year, group=1))+
   geom_line()+
@@ -198,24 +204,49 @@ ggplot(data = reineta_2022, aes(y=NUMERO_PANIOS, group=COD_BARCO)) +
 
 
 #capturas PESO
-hist(reineta_2022$PESO, breaks = 40)
+hist(reineta_2022$PESO, breaks = 40, 
+     main = "Histograma Peso captura", sub="Línea roja = 10000 kg",
+     xlab = "PESO", ylab="Frecuencia")
+abline(v=10000, col="red", lty=2)
+
 filtrado_1<-subset(reineta_2022, reineta_2022$PESO <= 10000)
 
 #esfuerzo HORA_DE_REPOSO
-hist(reineta_2022$HORA_DE_REPOSO/60, breaks = 200, xlim = c(0, 50))
+hist(reineta_2022$HORA_DE_REPOSO, breaks = 200,
+     main = "Histograma Esfuerzo en H de reposo", sub="Línea roja = 1800 min (30h)",
+     xlab = "HORA_DE_REPOSO", ylab="Frecuencia")
+abline(v=1800, col="red", lty=2)
+
 filtrado_2<-subset(filtrado_1, filtrado_1$HORA_DE_REPOSO <= 1800) #30h / podría ser 24h
 
 #esfuerzo NUMERO_PANIOS
-hist(reineta_2022$NUMERO_PANIOS, breaks = 200, xlim = c(0, 50))
+hist(reineta_2022$NUMERO_PANIOS, breaks = 200, 
+     main = "Histograma Esfuerzo en N de paños", sub="Línea roja = 50 paños",
+     xlab = "NUMERO_PANIOS", ylab="Frecuencia")
+abline(v=50, col="red", lty=2)
+
 filtrado_3<-subset(filtrado_2, filtrado_2$NUMERO_PANIOS <= 50) 
 
 #esfuerzo PROFUNDIDAD
-hist(reineta_2022$prof, xlim = c(0, 1000), breaks = 10000)
+hist(reineta_2022$prof, xlim = c(0, 1000), breaks = 10000,
+     main = "Histograma Profundiad", sub="Línea roja = 300 m",
+     xlab = "Profundidad", ylab="Frecuencia")
+abline(v=300, col="red", lty=2)
+
 filtrado_4<-subset(filtrado_3, filtrado_3$prof <= 300) 
 
 #esfuerzo CPUE
-hist(cpue_reineta_2022, breaks=100)
+hist(reineta_2022$cpue, breaks=100,
+     main = "Histograma CPUE (kg/m)", sub="Línea roja = 20",
+     xlab = "CPUE", ylab="Frecuencia")
+abline(v=20, col="red", lty=2)
+
 filtrado_5<-subset(filtrado_4, filtrado_4$cpue <= 20) 
+
+hist(reineta_2022$cpue_h, breaks=100,
+     main = "Histograma CPUE_h (kg/h)", sub="Línea roja = 1000",
+     xlab = "CPUE", ylab="Frecuencia")
+abline(v=1000, col="red", lty=2)
 
 print(paste("Base de datos inicial=",dim(reineta_2022)[1]))
 print(paste("Filtro PESO <= 10000",dim(filtrado_1)[1]))
@@ -238,8 +269,6 @@ acumm_filtrado_5 <- filtrado_5 %>%
   summarise_at(c("PESO", "TAMANIO_MALLA", "NUMERO_PANIOS", "HORA_DE_REPOSO", "cpue"),
                funs(sum), na.rm = TRUE)
 
-plot(x=acumm_filtrado_5$year, y=acumm_filtrado_5$PESO)
-
 ggplot(data=acumm_filtrado_5, aes(y=PESO/10000, x=year, group=1))+
   geom_line()+
   geom_point()+
@@ -253,4 +282,40 @@ ggplot(data=acumm_filtrado_5, aes(y=cpue, x=year, group=1))+
   ylab("Toneladas")
 
 #Estandarización cpue
+
+df1<-data.frame(filtrado_5[,c("cpue", "cpue_h", "f_year", "f_month", "COD_BARCO", 
+                              "LATITUD", "LONGITUD", "trimestre")])
+
+df2<-na.omit(df1)
+df2$log_cpue<-log(df2$cpue)
+
+hist(df2$COD_BARCO)
+
+lm_Mod1<-glm(cpue ~ f_year + LATITUD + LONGITUD, 
+            data= df2)
+
+lm_Mod2<-glm(cpue ~ f_year + trimestre + COD_BARCO + LATITUD + LONGITUD, 
+             data= df2)
+
+lm_Mod2<-glm(cpue ~ f_year + f_month + COD_BARCO + LATITUD + LONGITUD, 
+             data= df2)
+
+summary(lm_Mod1)
+summary(lm_Mod2)
+
+anova(lm_Mod1, lm_Mod2)
+
+
+gam_mod1<-gam(cpue ~ s(LATITUD, LONGITUD) + f_year, 
+              data= df2)
+
+gam_mod1.5<-gam(cpue ~ te(LATITUD, LONGITUD) + f_year, 
+              data= df2)
+
+gam_mod2<-gam(cpue ~ f_year + s(LATITUD, LONGITUD) + COD_BARCO + trimestre, 
+              data= df2)
+
+summary(gam_mod1)
+summary(gam_mod1.5)
+summary(gam_mod2)
 
