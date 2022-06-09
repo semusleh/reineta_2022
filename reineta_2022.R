@@ -24,7 +24,7 @@ reineta_2022$f_month<-as.factor(reineta_2022$month)
 reineta_2022$cpue<-reineta_2022$PESO/reineta_2022$HORA_DE_REPOSO
 reineta_2022$cpue_h<-reineta_2022$PESO/(reineta_2022$HORA_DE_REPOSO/60)
 
-reineta_2022$trimestre <- zoo::as.yearqtr(reineta_2022$FECHA_LANCE,           # Convert dates to quarterly
+reineta_2022$trimestre <- zoo::as.yearqtr(reineta_2022$FECHA_LANCE,   # Convert dates to quarterly
                                  format = "%Y-%m-%d")
 reineta_2022$COD_BARCO<-as.factor(reineta_2022$COD_BARCO)
 
@@ -190,6 +190,13 @@ hist(reineta_2022$HORA_DE_REPOSO[reineta_2022$HORA_DE_REPOSO<600])
 boxplot(HORA_DE_REPOSO ~ COD_BARCO, data = reineta_2022, las=2)
 summary(reineta_2022$HORA_DE_REPOSO[reineta_2022$HORA_DE_REPOSO>0])
 
+#Ejemplo variabilidad Esfuerzo por COD_BARCO
+
+boxplot(HORA_DE_REPOSO~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
+boxplot(NUMERO_PANIOS~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
+boxplot(TAMANIO_MALLA~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
+boxplot(LONGITUD_RED~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
+
 ggplot(data = reineta_2022, aes(y=HORA_DE_REPOSO, group=COD_BARCO)) +
   geom_boxplot()+
   labs(title = "HORA_DE_REPOSO",
@@ -201,7 +208,6 @@ ggplot(data = reineta_2022, aes(y=NUMERO_PANIOS, group=COD_BARCO)) +
   labs(title = "NUMERO_PANIOS",
        y = "NUMERO_PANIOS", x = "COD_BARCO") + 
   facet_wrap(~ year)
-
 
 #capturas PESO
 hist(reineta_2022$PESO, breaks = 40, 
@@ -228,12 +234,13 @@ abline(v=50, col="red", lty=2)
 filtrado_3<-subset(filtrado_2, filtrado_2$NUMERO_PANIOS <= 50) 
 
 #esfuerzo PROFUNDIDAD
-hist(reineta_2022$prof, xlim = c(0, 1000), breaks = 10000,
-     main = "Histograma Profundiad", sub="Línea roja = 300 m",
+hist(reineta_2022$prof, xlim = c(0, 1000), breaks = 100000,
+     main = "Histograma Profundiad", sub="Rojo = 300 y Azúl = 50",
      xlab = "Profundidad", ylab="Frecuencia")
 abline(v=300, col="red", lty=2)
+abline(v=50, col="blue", lty=2)
 
-filtrado_4<-subset(filtrado_3, filtrado_3$prof <= 300) 
+filtrado_4<-subset(filtrado_3, filtrado_3$prof <= 300) #50 m
 
 #esfuerzo CPUE
 hist(reineta_2022$cpue, breaks=100,
@@ -288,8 +295,6 @@ df1<-data.frame(filtrado_5[,c("cpue", "cpue_h", "f_year", "f_month", "COD_BARCO"
 
 df2<-na.omit(df1)
 df2$log_cpue<-log(df2$cpue)
-
-hist(df2$COD_BARCO)
 
 lm_Mod1<-glm(cpue ~ f_year + LATITUD + LONGITUD, 
             data= df2)
