@@ -1,3 +1,15 @@
+---
+title: "CPUE Reineta 2022"
+author: "Selim Musleh"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Library, message=FALSE, warning=FALSE, include=FALSE}
 library(data.table)
 library(dplyr)
 library(formattable)
@@ -5,36 +17,39 @@ library(tidyverse)#remover columnas vacias
 library(tidyr)
 library(pivottabler)
 library(janitor)
-library(lattice)
+#library(lattice)
 library(mgcv)#GAM
 library(readxl)
 library(ggplot2)
 library(ggpubr) #multiplot ggplot con una sola leyenda
 library(zoo) #cambiar a trimestre
-library(stringr) #separar caracteres HORA_DE_REPOSO
 library(tidymv)
+library(stringr)
+
+
+```
+
+```{r Data, message=FALSE, warning=FALSE, include=FALSE}
 
 setwd("C:/Github-DER/project reineta_2022/data reineta_2022")
 
-reineta_2022<-read_excel("Bitacoras enmalle - Artesanal hist.xlsx")
-Maestro_naves<-read_excel("Maestro naves.xlsx")
+Maestro_naves<-read_excel("Maestro naves.xlsx") #maestro naves bruto
+reineta_2022<-read_excel("Bitacoras enmalle - Artesanal hist.xlsx") #bitacoras brutas
 
 reineta_2022$year<-format(as.Date(reineta_2022$FECHA_LANCE, format="%d/%m/%Y"),"%Y")
 reineta_2022$month<-format(as.Date(reineta_2022$FECHA_LANCE, format="%d/%m/%Y"),"%m")
 
-reineta_2022$Hora_reposo<-round(reineta_2022$HORA_DE_REPOSO/100+(
-  as.numeric(str_sub(reineta_2022$HORA_DE_REPOSO,-2,-1))/60),2)
-
 reineta_2022$f_year<-as.factor(reineta_2022$year)
 reineta_2022$f_month<-as.factor(reineta_2022$month)
 
-reineta_2022$cpue_hr<-reineta_2022$PESO/reineta_2022$Hora_reposo
-reineta_2022$cpue_ml<-(reineta_2022$PESO)/(reineta_2022$LONGITUD_RED)
+#Transformar datos de tiempo de reposo a horas con decimales
+reineta_2022$Hora_reposo<-round(reineta_2022$HORA_DE_REPOSO/100+(
+                          as.numeric(str_sub(reineta_2022$HORA_DE_REPOSO,-2,-1))/60),2)
 
-reineta_2022$trimestre <- zoo::as.yearqtr(reineta_2022$FECHA_LANCE,   # Convert dates to quarterly
-                                 format = "%Y-%m-%d")
+reineta_2022$trimestre <- zoo::as.yearqtr(reineta_2022$FECHA_LANCE, format = "%Y-%m-%d")
+# Convert dates to quarterly
+                                 
 reineta_2022$COD_BARCO<-as.factor(reineta_2022$COD_BARCO)
-
 
 #complementación de datos de profundidad
 
@@ -48,20 +63,37 @@ for(i in 1:dim(reineta_2022)[1]){
   else {reineta_2022$prof[i]<-reineta_2022$PROFUNDIDAD_LM_ENM[i]}
 }
 
-#enmalle empieza el 2004
-#Espinel restringido espacialmente a Regiones de Valparaíso y Los Ríos (Resolución N 1333-2013)
+# CPUE
+#Hora de reposo
+reineta_2022$cpue_hr<-(reineta_2022$PESO)/(reineta_2022$Hora_reposo)
 
-#COD_ESPECIE 27
-#PESO Columna más completa que la de abajo 
-#PESO_TOTAL_CAPTURA no tan completa
-#Profundidad de 0 a 300m
+#Metro de red
+reineta_2022$cpue_ml<-(reineta_2022$PESO)/(reineta_2022$LONGITUD_RED)
 
-#CPUE
+```
 
-#Esfuerzo 1: LONGITUD_RED
-#Esfuerzo 2: TAMANIO_MALLA
-#Esfuerzo 3: NUMERO_PANIOS
-#Esfuerzo 4: HORA_DE_REPOSO
+
+# Resumen datos de enmalle para Reineta 2022
+
+## Concideraciones de la base de datos:
+
+* Enmalle empieza con datos desde el 2004
+* *COD_ESPECIE 6*: Información proviene de encuestas en puerto
+* *PESO* Columna más completa que la de abajo
+* *PESO_TOTAL_CAPTURA* no tan completa
+* *PROFUNDIDAD_LM_ENM* y *PROFUNDIDAD* complementan la data de Profundidad. La profundidad de operaciones usando enmalle no debería superar loas 50 m
+* *HORA_DE_REPOSO*: los dos primeros dígitos corresponden a horas y los dos últimos a minutos. Muy rara vez las redes quedan caladas de un día para otro.
+*  Pesca ocurre en una zona entre lebu y bucalemu o sur de san antonio
+* Columnas que contienen información relacionada a Esfierzo
+  + *LONGITUD_RED*: Usada para cpue en seguimiento (Se puede alargar o acortar las redes entre operaciones). Largo de Red puede ser buena medida de esfuerzo (ellos usan kg/m, metro lineal de red)
+  + *TAMANIO_MALLA*: Está bastante estandar en promedio 7'', pero se mueve entre 5 y 8.
+  + *NUMERO_PANIOS*: Paño no es una medida estandar usar en cpue
+  + *HORA_DE_REPOSO*: Podría ser un componente del esfuerzo junto a *LONGITUD_RED*
+
+# Tablas
+
+Tablas con número de registro pro año. También está creada la tabla por año y por mes, pero no la presento por ahora.
+```{r resumen anual bruto, message=FALSE, warning=FALSE, include=FALSE}
 
 reineta_2022_yr_mo<-reineta_2022 %>%
   group_by(year, month)  %>%
@@ -78,13 +110,35 @@ reineta_2022_yr_sum<-reineta_2022 %>%
   select(PESO, Hora_reposo, LONGITUD_RED, TAMANIO_MALLA, NUMERO_PANIOS, prof, year)%>%
   summarise_all(funs(sum), na.rm= T)  
 
+```
 
-format_table(reineta_2022_yr, format="markdown",
+```{r número de datos por columna y por año, echo=FALSE}
+formattable(reineta_2022_yr, format="markdown", caption = "Data por columna por año",
              align =c("c","c","c", "c", "c"), digits=3,
              list(`Indicator Name` = formatter(
-               "span", style = ~ style(color = "grey",font.weight = "bold")) 
+               "span", style = ~ style(color = "grey",font.weight = "bold"))
              ))
 
+```
+
+
+Valor acumulado por variable por año
+
+
+```{r acumulado por columna y por año, echo=FALSE}
+formattable(reineta_2022_yr_sum, format="markdown", caption = "Data por columna por año",
+             align =c("c","c","c", "c", "c"), digits=3,
+             list(`Indicator Name` = formatter(
+               "span", style = ~ style(color = "grey",font.weight = "bold"))
+             ))
+
+```
+
+
+Gráfico para valor acumulado por variable y por año
+
+
+```{r Resumen por variable por año, echo=FALSE, fig.height=8, fig.width=14}
 q1<-ggplot(data=reineta_2022_yr_sum, aes(y=PESO/1000, x=year, group=1))+
   geom_line()+
   geom_point()+
@@ -112,27 +166,22 @@ q5<-ggplot(data=reineta_2022_yr_sum, aes(y=Hora_reposo, x=year, group=1))+
 
 ggarrange(q1, q2, q3, q4,q5,
           ncol=2, nrow=3)
+```
 
+
+Valor acumulado para captura en peso y esfuerzo en hora de reposo del enmalle por año
+
+
+```{r Resumen por captura y esfuerzo por año, echo=FALSE, fig.height=8, fig.width=14}
 ggarrange(q1, q5,
           ncol=1, nrow=2)
+```
 
 
+Gráfico de la Variabilidad de las dos potenciales medidas de esfuerzo: 
 
-hist(reineta_2022$NUMERO_PANIOS, breaks = 100)
-boxplot(NUMERO_PANIOS ~ COD_BARCO, data = reineta_2022, las=2)
 
-hist(reineta_2022$Hora_reposo)
-
-boxplot(HORA_DE_REPOSO ~ COD_BARCO, data = reineta_2022, las=2)
-summary(reineta_2022$HORA_DE_REPOSO[reineta_2022$HORA_DE_REPOSO>0])
-
-#Ejemplo variabilidad Esfuerzo por COD_BARCO
-
-boxplot(HORA_DE_REPOSO~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
-boxplot(NUMERO_PANIOS~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
-boxplot(TAMANIO_MALLA~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
-boxplot(LONGITUD_RED~COD_BARCO, data=reineta_2022[reineta_2022$year=="2021",], las=2, xlab="")
-
+```{r var esfeurzo, echo=FALSE, warning=FALSE, fig.height=8, fig.width=14, eval=TRUE}
 ggplot(data = reineta_2022, aes(y=Hora_reposo, group=COD_BARCO)) +
   geom_boxplot()+
   labs(title = "Variabilidad en Hora_reposo",
@@ -150,8 +199,13 @@ ggplot(data = reineta_2022[reineta_2022$LONGITUD_RED < 4000,],
         axis.ticks.x=element_blank())+
   facet_wrap(~ year, scales = "free")
 
+```
 
-### Filtros ###
+# Filtrado de datos
+
+Para el filtrado de datos tomé en cuenta la información provista por Jorge Satler un la reunión del 8-06-2022 y algunas caractarísticas de los datos, lo segundo principalmente para remover dato extremos.
+
+```{r}
 
 #capturas PESO
 hist(reineta_2022$PESO, breaks = 40, 
@@ -161,6 +215,10 @@ abline(v=10000, col="red", lty=2)
 
 filtrado_1<-subset(reineta_2022, reineta_2022$PESO <= 10000)
 
+```
+
+```{r}
+
 #esfuerzo HORA_DE_REPOSO
 hist(reineta_2022$Hora_reposo, breaks = 200,
      main = "Histograma Esfuerzo en H de reposo", sub="Línea roja = 1800 min (30h)",
@@ -169,6 +227,9 @@ abline(v=24, col="red", lty=2)
 
 filtrado_2<-subset(filtrado_1, filtrado_1$Hora_reposo <= 24)
 
+```
+
+```{r}
 #esfuerzo NUMERO_PANIOS
 hist(reineta_2022$NUMERO_PANIOS, breaks = 200, 
      main = "Histograma Esfuerzo en N de paños", sub="Línea roja = 50 paños",
@@ -177,6 +238,9 @@ abline(v=50, col="red", lty=2)
 
 filtrado_3<-subset(filtrado_2, filtrado_2$NUMERO_PANIOS <= 50) 
 
+```
+
+```{r}
 #PROFUNDIDAD
 hist(reineta_2022$prof, xlim = c(0, 1000), breaks = 100000,
      main = "Histograma Profundiad", sub="Rojo = 300 y Azúl = 50",
@@ -186,6 +250,9 @@ abline(v=50, col="blue", lty=2)
 
 filtrado_4<-subset(filtrado_3, filtrado_3$prof <= 50) #50 m
 
+```
+
+```{r}
 #esfuerzo LONGITUD_RED
 hist(reineta_2022$LONGITUD_RED, xlim = c(0, 4000), breaks = 1000,
      main = "Histograma Esfuerzo en LONGITUD_RED", sub="Rojo = 300",
@@ -194,6 +261,9 @@ abline(v=3500, col="red", lty=2)
 
 filtrado_5<-subset(filtrado_4, filtrado_4$LONGITUD_RED <= 3500) 
 
+```
+
+```{r}
 #esfuerzo CPUE horas de reposo
 hist(reineta_2022$cpue_hr, breaks=100,
      main = "Histograma CPUE (kg/hr)", sub="Línea roja = 20",
@@ -201,15 +271,23 @@ hist(reineta_2022$cpue_hr, breaks=100,
 abline(v=2000, col="red", lty=2)
 
 filtrado_6<-subset(filtrado_5, filtrado_5$cpue_hr <= 2000) 
+```
 
-#esfuerzo CPUE
+```{r}
+#esfuerzo CPUE Largo de red
 hist(reineta_2022$cpue_ml, breaks=1000, xlim=c(0, 100),
      main = "Histograma CPUE (kg/m)", sub="Línea roja = 20",
      xlab = "CPUE", ylab="Frecuencia")
 abline(v=20, col="red", lty=2)
 
 filtrado_7<-subset(filtrado_6, filtrado_6$cpue_ml <= 20) 
+```
 
+
+# Reporte de los filtros
+
+
+```{r}
 print(paste("Base de datos inicial=",dim(reineta_2022)[1]))
 print(paste("Filtro PESO <= 10000",dim(filtrado_1)[1]))
 print(paste("Filtro HORA_DE_REPOSO <= 24h=",dim(filtrado_2)[1]))
@@ -218,30 +296,26 @@ print(paste("Filtro prof <= 50 m=",dim(filtrado_4)[1]))
 print(paste("Filtro LONGITUD_RED <= 3500 m=",dim(filtrado_5)[1]))
 print(paste("Filtro cpue_hr <= 2000 kg/hr=",dim(filtrado_6)[1]))
 print(paste("Filtro cpue_ml <= 20 kg/m=",dim(filtrado_7)[1]))
+```
 
-dim(filtrado_7)
-
-hist(filtrado_7$cpue_hr, breaks = 30)
-hist(log(filtrado_7$cpue_hr), breaks = 30)
-
-hist(filtrado_7$cpue_ml, breaks = 30)
-hist(log(filtrado_7$cpue_ml), breaks = 30)
-
-hist(filtrado_7$PESO, breaks = 30)
-hist(log(filtrado_7$PESO), breaks = 30)
-
-hist(filtrado_7$Hora_reposo, breaks = 30)
-hist(log(filtrado_7$HORA_DE_REPOSO), breaks = 30)
-
-
+```{r r resumen anual filtrado 5, echo=FALSE}
 
 reineta_2022_yr_postf<-filtrado_7 %>%
   group_by(year)  %>%
-  select(PESO, Hora_reposo, LONGITUD_RED, cpue_hr,cpue_ml, prof, year, month)%>%
+  select(PESO, Hora_reposo, LONGITUD_RED, cpue_hr, cpue_ml, prof, year, month)%>%
   summarise_all(funs(sum(!is.na(.))))  
 
+```
 
-filtrado_8<-subset(filtrado_7, filtrado_7$year != 2004) #50 m
+
+El año 2004 quedó con solo un dato, así que también lo removí del análisis
+```{r filtrado 6 para sacar 2004}
+
+filtrado_8<-subset(filtrado_7, filtrado_7$year != 2004) # quedaba un sólo registro del 2004
+
+```
+
+```{r tablas filtro 8, message=FALSE, warning=FALSE, include=FALSE}
 
 reineta_2022_yr_postf<-filtrado_8 %>%
   group_by(year)  %>%
@@ -253,12 +327,23 @@ reineta_2022_yr_sum_postf<-filtrado_8 %>%
   select(PESO, Hora_reposo, LONGITUD_RED, cpue_hr, cpue_ml, prof, year)%>%
   summarise_all(funs(sum), na.rm= T)  
 
+```
+
+
+```{r número de datos por columna y por año filtrado, echo=FALSE}
 formattable(reineta_2022_yr_postf, format="markdown", caption = "Data por columna por año",
             align =c("c","c","c", "c", "c"), digits=3,
             list(`Indicator Name` = formatter(
               "span", style = ~ style(color = "grey",font.weight = "bold"))
             ))
 
+```
+
+# Gráficos finales
+
+Caputra, esfuerzo y CPUE basados en horas de reposo 
+
+```{r plots con filtro cpue_hr, echo=FALSE, warning=FALSE, fig.height=8, fig.width=14}
 # Plots post filtrado cpue_hr
 
 w1<-ggplot(data=reineta_2022_yr_sum_postf, aes(y=PESO/10000, x=year, group=1))+
@@ -279,7 +364,18 @@ w3<-ggplot(data=reineta_2022_yr_sum_postf, aes(y=cpue_hr, x=year, group=1))+
   ggtitle("cpue nominal acumulada anual")+
   ylab("Toneladas")
 
-# Plot post filtrado cpue_ml
+
+
+ggarrange(w1, w2, w3,
+          ncol=1, nrow=3)
+```
+
+
+Caputra, esfuerzo y CPUE basados en largo de red 
+
+
+```{r plots con filtro cpue_ml, echo=FALSE, warning=FALSE, fig.height=8, fig.width=14}
+# Plots post filtrado cpue_hr
 
 e1<-ggplot(data=reineta_2022_yr_sum_postf, aes(y=PESO/10000, x=year, group=1))+
   geom_line()+
@@ -299,11 +395,16 @@ e3<-ggplot(data=reineta_2022_yr_sum_postf, aes(y=cpue_ml, x=year, group=1))+
   ggtitle("cpue nominal acumulada anual")+
   ylab("Toneladas")
 
+ggarrange(e1, e2, e3,
+          ncol=1, nrow=3)
+```
 
+```{r Tabla para estandaización ,message=FALSE, warning=FALSE, include=FALSE}
 logcpuedata<-data.frame(logpeso=log(filtrado_8$PESO),
                         logcpue_hr=log(filtrado_8$cpue_hr),
                         logcpue_ml=log(filtrado_8$cpue_ml),
-                        logcpue_comb=log(filtrado_8$PESO/(filtrado_8$Hora_reposo*filtrado_8$LONGITUD_RED)),
+                        logcpue_comb=log(filtrado_8$PESO/
+                                           (filtrado_8$Hora_reposo*filtrado_8$LONGITUD_RED)),
                         cpue_hr=filtrado_8$cpue_hr,
                         cpue_ml=filtrado_8$cpue_ml,
                         f_year=filtrado_8$f_year,
@@ -312,13 +413,17 @@ logcpuedata<-data.frame(logpeso=log(filtrado_8$PESO),
                         COD_BARCO=filtrado_8$COD_BARCO, 
                         LATITUD=filtrado_8$LATITUD, 
                         LONGITUD=filtrado_8$LONGITUD)
-
 # Filtro de valores finitos (hay uno que se va a infinito)
 logcpuedata<-logcpuedata %>% 
   filter_at(vars(names(logcpuedata)[1:4]), all_vars(!is.infinite(.)))
 
 dim(logcpuedata)
 
+```
+
+# Evaluando CPUE vs Capturas
+
+```{r plot cpue vs captura, echo=FALSE, fig.height=8, fig.width=14, message=FALSE}
 logcpue_hr<-ggplot(logcpuedata, aes(x=logcpue_hr, y=logpeso))+
   geom_point()+
   geom_smooth(method="lm", col="blue")+
@@ -345,36 +450,48 @@ logcpue_comb<-ggplot(logcpuedata, aes(x=logcpue_comb, y=logpeso))+
 ggarrange(logcpue_hr, logcpue_ml, logcpue_comb,
           ncol=1, nrow=3)
 
-#Estandarización cpue
+```
 
-gam_mod1<-gam(logcpue_hr ~ s(LATITUD, LONGITUD) + f_year, 
-              data= logcpuedata)
+# Propuestas de estandarización
+Modelo presentado explroando las relaciones usando un GAM con los siguientes argumentos:
+`gam(logcpue_ml ~ f_year + trimestre + s(LATITUD, LONGITUD) + COD_BARCO`
+El valor de CPUE usado es el la captura dividido por esfuerzo como metro lineal de red, porque tenía el mejor ajuste en la regresión de captura vs cpue.
 
-gam_mod2<-gam(logcpue_hr ~ te(LATITUD, LONGITUD) + f_year, 
-              data= logcpuedata)
-
-gam_mod3<-gam(logcpue_hr ~ f_year + trimestre + s(LATITUD, LONGITUD) + COD_BARCO, 
-              data= logcpuedata)
-
-lm_Mod3<-lm(logcpue_hr ~ f_year + LATITUD + LONGITUD + trimestre + COD_BARCO, 
-            data= logcpuedata)
-
-summary(gam_mod1)
-summary(gam_mod2)
-summary(gam_mod3)
-summary(lm_Mod3)
+```{r GAM cpue_hr, message=FALSE, echo=FALSE, warning=FALSE, eval=FALSE}
+print("Modelo logcpue_hr")
 
 gam_mod3_logcpue_hr<-gam(logcpue_hr ~ f_year + trimestre + s(LATITUD, LONGITUD) + COD_BARCO, 
               data= logcpuedata)
-summary(gam_mod3)
+summary(gam_mod3_logcpue_hr)
+```
+
+```{r GAM cpue_ml, message=FALSE, echo=FALSE, warning=FALSE, eval=TRUE}
+print("Modelo logcpue_ml")
 
 gam_mod3_logcpue_ml<-gam(logcpue_ml ~ f_year + trimestre + s(LATITUD, LONGITUD) + COD_BARCO, 
               data= logcpuedata)
-summary(gam_mod3)
+#summary(gam_mod3_logcpue_ml)
+
+devexp_gam_mod3_logcpue_lm<-round(summary(gam_mod3_logcpue_ml)$dev.expl, 2)
+
+print(paste0("Deviance explained: ", devexp_gam_mod3_logcpue_lm, "%"))
+
+```
+
+```{r GAM cpue_comb, message=FALSE, echo=FALSE, warning=FALSE, eval=FALSE}
+print("Modelo logcpue_comb")
 
 gam_mod3_logcpue_comb<-gam(logcpue_comb ~ f_year + trimestre + s(LATITUD, LONGITUD) + COD_BARCO, 
               data= logcpuedata)
 summary(gam_mod3_logcpue_comb)
+```
+
+
+# Uniendo datos de bitácoras con maestro naves
+
+La idea es poder agregar factores relacionados a las características de las embaciones para hacer más pruebas en la estandarización de la cpue
+
+```{r uniendo datos bitácora con datos naves, echo=FALSE, eval=TRUE}
 
 Maestro_naves<-data.frame(COD_BARCO=Maestro_naves$COD_BARCO,
                           Eslora=Maestro_naves$ESLORA,
@@ -383,19 +500,23 @@ Maestro_naves<-data.frame(COD_BARCO=Maestro_naves$COD_BARCO,
                           Potencia=Maestro_naves$POTENCIA_MOTOR,
                           TRG=Maestro_naves$TRG)
 
-logcpuedata$COD_BARCO
 Maestro_naves$COD_BARCO<-as.factor(Maestro_naves$COD_BARCO)
 
 logcpuedata_naves<-left_join(x=logcpuedata, y=Maestro_naves, by ="COD_BARCO") 
 
-logcpuedata_naves_count<-logcpuedata_naves %>%
+ logcpuedata_naves_count<-logcpuedata_naves %>%
   group_by(f_year)  %>%
   summarise_all(funs(sum(!is.na(.))))  
 
+formattable(logcpuedata_naves_count, format="markdown", caption = "Data por columna por año",
+            align =c("c","c","c", "c", "c"), digits=3,
+            list(`Indicator Name` = formatter(
+              "span", style = ~ style(color = "grey",font.weight = "bold"))
+            ))
 
-str(gam_mod3_logcpue_comb)
-summary(gam_mod3_logcpue_comb)
+```
 
-devexp_gam_mod3_logcpue_comb<-round(summary(gam_mod3_logcpue_comb)$dev.expl, 2)
 
-print(paste0("Deviance explained: ", devexp_gam_mod3_logcpue_comb, "%"))
+
+
+
