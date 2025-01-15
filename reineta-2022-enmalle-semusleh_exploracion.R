@@ -952,7 +952,3 @@ ggplot(data = Chile) +
              mapping = aes(x = lon, y = lat), colour = "red")+
   facet_wrap(~f_year, ncol = 6)
 
-
-
-
-
