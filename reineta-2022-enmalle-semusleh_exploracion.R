@@ -954,11 +954,5 @@ ggplot(data = Chile) +
 
 
 
-### hasjdajsdaksadnanad
-
-
-asdasdasd
-##asdas
-
 
 
