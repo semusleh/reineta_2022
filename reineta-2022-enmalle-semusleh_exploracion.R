@@ -951,4 +951,3 @@ ggplot(data = Chile) +
   geom_point(data = filtrado_10,
              mapping = aes(x = lon, y = lat), colour = "red")+
   facet_wrap(~f_year, ncol = 6)
-
